@@ -2,14 +2,34 @@
 
 import random
 from textwrap import dedent
+from typing import List
 from uuid import uuid4
 
 import discord
+import openai
 from decouple import config
 from discord.ext import commands
+from openai.openai_object import OpenAIObject
+from sqlalchemy.future import select
+from sqlmodel.ext.asyncio.session import AsyncSession
+
+from snake_bot.database.db import engine
+from snake_bot.database.models import Conversation
+from snake_bot.utils import MockOpenAIResponse
 
 GUILD_ID = config("GUILD_ID")
 DISCORD_TOKEN = config("DISCORD_TOKEN")
+openai.organization = config("OPENAI_ORGANIZATION")
+openai.api_key = config("OPENAPI_TOKEN")
+
+DEFAULT_CONVERSATION = """
+    User: Hi HAL (that's your name from now on)\n
+    AI: Hello %s\n
+    User: We're going to talk about %s (for code examples add markdown code blocks with language support)\n
+    AI: Ok
+"""
+
+OPENAI_RESPONSE_ERROR = [MockOpenAIResponse("Some kind of error happen when trying to get your answer!")]
 
 description = """SnakeBot built by rdenadai."""
 
@@ -97,6 +117,56 @@ async def this(ctx):
             """
         )
     )
+
+
+@bot.hybrid_command(description="Talk with HAL-9000 bot")
+async def hal(ctx, question: str):
+    original_question = question
+    person_name = ctx.message.author.name
+    person_id: str = str(ctx.message.author.id)
+    topic: str = ctx.message.channel.name
+
+    async with AsyncSession(engine) as session:
+        conversations = await session.execute(
+            select(Conversation).where(Conversation.topic == topic, Conversation.person == person_id)
+        )
+
+        context: List[str] = [
+            f"User:{conversation.person_message}\nAI:{conversation.ai_response}"
+            for conversation in conversations.scalars().all()
+        ]
+        if not context:
+            context.append(dedent(DEFAULT_CONVERSATION % (person_name, " ".join(topic.split("_")))))
+        context.append(f"User: {question}")
+        question = "\n".join(context)
+
+        # Make a call to OpenAI language model
+        response: OpenAIObject = await openai.Completion.acreate(
+            model="text-davinci-003",
+            prompt=f"{question}\n$--$",
+            max_tokens=256,
+            temperature=0,
+            top_p=1,
+            frequency_penalty=0.0,
+            presence_penalty=0.0,
+            stop=["\n$--$"],
+        )
+        ai_response: str = response.get("choices", OPENAI_RESPONSE_ERROR)[0].text
+
+        # # Save conversation on database
+        session.add(
+            Conversation(
+                topic=topic,
+                person=person_id,
+                person_message=question,
+                ai_response=ai_response,
+            )
+        )
+        await session.commit()
+
+        # Response to discord
+        await ctx.reply(original_question)
+        await ctx.send(ai_response)
 
 
 bot.run(DISCORD_TOKEN)

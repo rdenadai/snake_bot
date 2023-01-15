@@ -12,4 +12,6 @@ Create a `.env` file at the root folder with the following information:
 MODE=production
 GUILD_ID=
 DISCORD_TOKEN=
+OPENAI_ORGANIZATION=
+OPENAPI_TOKEN=
 ```
