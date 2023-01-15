@@ -1,0 +1,13 @@
+version: "3"
+
+services:
+  snake_bot:
+    build: .
+    entrypoint: ./entrypoint.sh
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+    env_file:
+      - .env
+    volumes:
+      - ./:/code

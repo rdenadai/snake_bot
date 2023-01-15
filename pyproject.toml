@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "snake-bot"
+version = "0.1.0"
+description = ""
+authors = ["Rodolfo De Nadai <rdenadai@gmail.com>"]
+readme = "README.md"
+packages = [{include = "snake_bot"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+discord-py = "^2.1.0"
+python-decouple = "^3.7"
+
+[tool.poetry.group.dev.dependencies]
+black = "^22.12.0"
+isort = "^5.11.4"
+flake8 = "^6.0.0"
+bandit = "^1.7.4"
+pylint = "^2.15.10"
+perflint = "^0.7.3"
+mypy = "^0.991"
+mccabe = "^0.7.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
